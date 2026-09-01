@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shubh Sajawat — Inventory Management & Digital Challan System</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- AUTHENTICATION OVERLAY (Login & Register) -->
+<div class="auth-wrapper" id="authScreen" style="display:none;">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-logo">SS</div>
+      <h2>SHUBH SAJAWAT</h2>
+      <p>Inventory Management &amp; Digital Challan Portal</p>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabBtnLogin" onclick="switchAuthTab('login')">Sign In</button>
+      <button class="auth-tab" id="tabBtnRegister" onclick="switchAuthTab('register')">Register Account</button>
+      <button class="auth-tab" id="tabBtnForgot" onclick="switchAuthTab('forgot')" style="display:none;">Reset Password</button>
+    </div>
+
+    <!-- Login Form -->
+    <div class="auth-body" id="loginFormContainer">
+      <form onsubmit="handleLoginSubmit(event)">
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Username, Mobile Number, or Email</label>
+          <input type="text" id="auth_identifier" class="form-control" placeholder="Username, mobile number, or email" required>
+        </div>
+        <div class="form-group" style="margin-bottom:6px;">
+          <label class="form-label">Password</label>
+          <input type="password" id="auth_password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <div style="text-align:right;margin-bottom:16px;">
+          <a href="#" onclick="switchAuthTab('forgot');return false;" style="font-size:12.5px;color:var(--primary-color);text-decoration:none;font-weight:500;">Forgot Password?</a>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Sign In to Dashboard</button>
+      </form>
+    </div>
+
+    <!-- Register Form -->
+    <div class="auth-body" id="registerFormContainer" style="display:none;">
+      <div class="auth-notice">
+        🔒 <strong>Default Viewer Access:</strong> All newly registered accounts are created with read-only <strong>Viewer</strong> access. An administrator can grant you <strong>Loader</strong> or <strong>Admin</strong> privileges.
+      </div>
+      <form onsubmit="handleRegisterSubmit(event)">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Username <span class="req">*</span></label>
+          <input type="text" id="reg_name" class="form-control" placeholder="Choose a username" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Mobile Number <span class="req">*</span></label>
+          <input type="text" id="reg_phone" class="form-control" placeholder="e.g. 9876543210" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Email Address (Optional)</label>
+          <input type="email" id="reg_email" class="form-control" placeholder="name@example.com">
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label">Password <span class="req">*</span></label>
+          <input type="password" id="reg_password" class="form-control" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;">Create Account (View Only)</button>
+      </form>
+    </div>
+
+    <!-- Forgot Password Form -->
+    <div class="auth-body" id="forgotFormContainer" style="display:none;">
+      <div class="auth-notice" style="background:#f0f9ff;border-color:#bae6fd;color:#0369a1;">
+        🔑 <strong>Password Reset:</strong> Enter your registered mobile number to set a new password.
+      </div>
+      <form onsubmit="handleForgotPasswordSubmit(event)">
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">Registered Mobile Number <span class="req">*</span></label>
+          <input type="text" id="forgot_phone" class="form-control" placeholder="e.g. 9876543210" required>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label">New Password <span class="req">*</span></label>
+          <input type="password" id="forgot_new_password" class="form-control" placeholder="••••••••" required minlength="4">
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+          <label class="form-label">Confirm New Password <span class="req">*</span></label>
+          <input type="password" id="forgot_confirm_password" class="form-control" placeholder="••••••••" required minlength="4">
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-bottom:12px;">Reset &amp; Save Password</button>
+        <button type="button" class="btn btn-secondary" style="width:100%;" onclick="switchAuthTab('login')">← Back to Sign In</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN DASHBOARD APP -->
+<div class="app-container" id="mainApp" style="display:none;">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="appSidebar">
+    <div class="brand-section">
+      <div class="brand-logo">SS</div>
+      <div class="brand-info">
+        <h2>SHUBH SAJAWAT</h2>
+        <span>Material &amp; Challan Tracker</span>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <button class="nav-item active" data-page="dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+        <span>Dashboard</span>
+      </button>
+
+      <button class="nav-item" data-page="challans">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+        <span>Digital Challans</span>
+      </button>
+
+      <button class="nav-item" data-page="sites">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="10" r="3"></circle><path d="M12 21.7C17.3 17 20 13 20 10a8 8 0 1 0-16 0c0 3 2.7 7 8 11.7z"></path></svg>
+        <span>Active Event Sites</span>
+      </button>
+
+      <button class="nav-item" data-page="returns">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+        <span>Returns &amp; Shortages</span>
+      </button>
+
+      <button class="nav-item" data-page="inventory">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+        <span>Master Catalog</span>
+      </button>
+
+      <button class="nav-item" id="navUserManagement" data-page="users" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        <span>User &amp; Role Admin</span>
+      </button>
+
+      <button class="nav-item" data-page="history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
+        <span>Movement Audit Log</span>
+      </button>
+    </nav>
+
+    <!-- User Profile & Logout -->
+    <div class="user-profile-widget">
+      <div class="profile-card">
+        <div class="avatar" id="userAvatarInitials">U</div>
+        <div class="profile-details">
+          <div class="profile-name" id="userNameLabel">Loading...</div>
+          <span class="profile-role-badge role-viewer" id="userRoleBadge">VIEWER</span>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:10px;" onclick="handleLogout()">
+        ⎋ Sign Out
+      </button>
+    </div>
+  </aside>
+
+  <!-- Main Content Viewport -->
+  <div class="main-wrapper">
+    
+    <!-- Top Header Bar -->
+    <header class="top-header">
+      <div class="header-left">
+        <button class="mobile-toggle" onclick="toggleMobileSidebar()">☰</button>
+        <div class="page-titles">
+          <h1 id="pageMainTitle">Executive Dashboard</h1>
+          <p id="pageSubtitle">Real-time overview of active dispatches, sites, and inventory health.</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button class="btn btn-primary" id="headerNewChallanBtn" onclick="openNewChallanModal()">
+          + New Loading Challan
+        </button>
+      </div>
+    </header>
+
+    <main class="content-body">
+
+      <!-- 1. DASHBOARD PAGE -->
+      <section class="page-view" id="page_dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Active Sites</div>
+              <div class="stat-val" id="kpiActiveSites">0</div>
+              <div class="stat-meta">Venues currently holding decor</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#eff6ff;color:#2563eb;">
+              📍
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Materials Out on Site</div>
+              <div class="stat-val" id="kpiItemsOut" style="color:#d97706;">0</div>
+              <div class="stat-meta">Total units outside warehouse</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#fef3c7;color:#d97706;">
+              📦
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Overdue Returns</div>
+              <div class="stat-val" id="kpiOverdue" style="color:#dc2626;">0</div>
+              <div class="stat-meta">Sites past scheduled return date</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#fee2e2;color:#dc2626;">
+              ⚠️
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Master Catalog Stock</div>
+              <div class="stat-val" id="kpiTotalCatalog">0</div>
+              <div class="stat-meta">Total managed inventory units</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#f0fdf4;color:#16a34a;">
+              🏛️
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:24px;">
+          <!-- Active Sites Table -->
+          <div class="card-section">
+            <div class="card-header">
+              <h2>Active Event Deployments</h2>
+              <button class="btn btn-secondary btn-sm" onclick="navigateTo('sites')">View All Sites →</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Client / Venue</th>
+                    <th>Challan ID</th>
+                    <th>Material Out</th>
+                    <th>Return Due</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="dashActiveSitesBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent Movements -->
+          <div class="card-section">
+            <div class="card-header">
+              <h2>Recent Movements</h2>
+              <button class="btn btn-secondary btn-sm" onclick="navigateTo('history')">Audit Trail →</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Material</th>
+                    <th>Destination</th>
+                    <th>Type</th>
+                    <th>Qty</th>
+                  </tr>
+                </thead>
+                <tbody id="dashMovementBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. DIGITAL CHALLANS PAGE -->
+      <section class="page-view" id="page_challans" style="display:none;">
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="challanSearchInput" class="search-input" placeholder="Search by Client, Venue, Challan ID, or Loader..." oninput="renderChallansView()">
+          </div>
+
+          <div style="display:flex;gap:10px;">
+            <select id="challanStatusFilter" class="filter-select" onchange="renderChallansView()">
+              <option value="ALL">All Challans</option>
+              <option value="ACTIVE">Active (At Site)</option>
+              <option value="OVERDUE">Overdue</option>
+              <option value="RETURNED">Fully Returned</option>
+            </select>
+            <button class="btn btn-primary" id="btnNewChallanInPage" onclick="openNewChallanModal()">+ New Loading Challan</button>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Challan No.</th>
+                  <th>Client &amp; Venue</th>
+                  <th>Dispatch Date</th>
+                  <th>Due Date</th>
+                  <th>Items Loaded</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="challanTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. ACTIVE SITES PAGE -->
+      <section class="page-view" id="page_sites" style="display:none;">
+        <div class="toolbar">
+          <div></div>
+          <button class="btn btn-primary" id="btnNewDispatchInSites" onclick="openNewChallanModal()">+ New Dispatch to Site</button>
+        </div>
+        <div class="sites-grid" id="sitesGridContainer"></div>
+      </section>
+
+      <!-- 4. RETURNS & RECONCILIATION PAGE -->
+      <section class="page-view" id="page_returns" style="display:none;">
+        <div class="card-section">
+          <div class="card-header">
+            <h2>Pending Event Site Returns</h2>
+            <span style="font-size:12.5px;color:var(--text-muted)">Receive incoming materials and account for damage or shortage</span>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Challan ID</th>
+                  <th>Client &amp; Venue</th>
+                  <th>Materials Outside</th>
+                  <th>Expected Return</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="returnsTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. MASTER CATALOG & INVENTORY PAGE -->
+      <section class="page-view" id="page_inventory" style="display:none;">
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="inventorySearchInput" class="search-input" placeholder="Search catalog items..." oninput="renderInventoryView()">
+          </div>
+
+          <div style="display:flex;gap:10px;">
+            <select id="inventoryCategoryFilter" class="filter-select" onchange="renderInventoryView()">
+              <option value="ALL">All Categories</option>
+              <option value="Furniture">Furniture</option>
+              <option value="Structures">Structures &amp; Frames</option>
+              <option value="Artifacts">Artifacts &amp; Props</option>
+              <option value="Brass & Metal">Brass &amp; Metal</option>
+              <option value="Fabrics">Fabrics</option>
+              <option value="Lighting">Lighting</option>
+              <option value="Consumables">Consumables</option>
+            </select>
+            <button class="btn btn-primary" id="btnAddCatalogItem" onclick="openAddNewCatalogModal()">+ Add New Material</button>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Material Item</th>
+                  <th>Category</th>
+                  <th>Size Specifications</th>
+                  <th>Total Stock</th>
+                  <th>At Event Sites</th>
+                  <th>In Warehouse (Available)</th>
+                  <th>Admin Action</th>
+                </tr>
+              </thead>
+              <tbody id="inventoryTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6. USERS & ROLES PAGE (ADMIN ONLY) -->
+      <section class="page-view" id="page_users" style="display:none;">
+        <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Total Users</div>
+              <div class="stat-val" id="kpiTotalUsers">0</div>
+              <div class="stat-meta">Registered accounts</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#eff6ff;color:#2563eb;">👥</div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Administrators</div>
+              <div class="stat-val" id="kpiAdminUsers" style="color:#7c3aed;">0</div>
+              <div class="stat-meta">Full system control</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#f5f3ff;color:#7c3aed;">🔑</div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Loaders</div>
+              <div class="stat-val" id="kpiLoaderUsers" style="color:#0284c7;">0</div>
+              <div class="stat-meta">Loading dock dispatches</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#f0f9ff;color:#0284c7;">🚚</div>
+          </div>
+          <div class="stat-card">
+            <div>
+              <div class="stat-title">Viewers</div>
+              <div class="stat-val" id="kpiViewerUsers" style="color:#64748b;">0</div>
+              <div class="stat-meta">Read-only accounts</div>
+            </div>
+            <div class="stat-icon-wrap" style="background:#f1f5f9;color:#64748b;">👁️</div>
+          </div>
+        </div>
+
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="userSearchInput" class="search-input" placeholder="Search users by name, phone, or email..." oninput="renderUsersView()">
+          </div>
+
+          <div style="display:flex;gap:10px;">
+            <select id="userRoleFilter" class="filter-select" onchange="renderUsersView()">
+              <option value="ALL">All Roles</option>
+              <option value="admin">Administrators</option>
+              <option value="loader">Loaders</option>
+              <option value="viewer">Viewers</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" onclick="fetchUsers()">↻ Fetch / Refresh Users</button>
+          </div>
+        </div>
+
+        <div class="card-section">
+          <div class="card-header">
+            <div>
+              <h2>Registered Staff &amp; Access Control</h2>
+              <span style="font-size:12.5px;color:var(--text-muted)">Grant Admin or Loader privileges to registered viewers with explicit confirmation</span>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Staff Member</th>
+                  <th>Contact Info</th>
+                  <th>Current Role</th>
+                  <th>Registered On</th>
+                  <th>Status</th>
+                  <th>Grant Role</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7. MOVEMENT AUDIT TRAIL PAGE -->
+      <section class="page-view" id="page_history" style="display:none;">
+        <div class="toolbar">
+          <div class="search-input-wrap">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" id="historySearchInput" class="search-input" placeholder="Search audit history..." oninput="renderHistoryView()">
+          </div>
+
+          <select id="historyTypeFilter" class="filter-select" onchange="renderHistoryView()">
+            <option value="ALL">All Movements</option>
+            <option value="Dispatch">Dispatches (Out)</option>
+            <option value="Return">Returns (In)</option>
+            <option value="Damage">Damage / Shortage</option>
+          </select>
+        </div>
+
+        <div class="card-section">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Material / Challan</th>
+                  <th>Origin</th>
+                  <th>Destination</th>
+                  <th>Quantity</th>
+                  <th>Movement Type</th>
+                  <th>Logged By</th>
+                </tr>
+              </thead>
+              <tbody id="historyTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- Modal Mount Point -->
+<div class="modal-backdrop" id="mainModalBackdrop">
+  <div class="modal-container" id="modalContentContainer"></div>
+</div>
+
+<!-- Toast Notifications Mount Point -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Application Script -->
+<script src="app.js"></script>
+
+</body>
+</html>
