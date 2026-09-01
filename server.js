@@ -26,7 +26,7 @@ app.use('/api', async (req, res, next) => {
   } catch (err) {
     console.error('[API Error] Database connection failed:', err.message);
     res.status(503).json({ 
-      error: 'MongoDB Atlas connection failed. Please ensure MONGODB_URI is configured and IP 0.0.0.0/0 is whitelisted in Atlas.' 
+      error: `MongoDB Atlas connection error: ${err.message}` 
     });
   }
 });
