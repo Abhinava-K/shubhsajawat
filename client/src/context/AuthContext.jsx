@@ -2,6 +2,23 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
+async function parseResponse(res) {
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    if (!res.ok) {
+      throw new Error(`Server connection issue (${res.status}). Please verify MongoDB Atlas Network Access.`);
+    }
+    throw new Error('Invalid response format from server.');
+  }
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed with status ${res.status}`);
+  }
+  return data;
+}
+
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const [user, setUser] = useState(null);
@@ -19,7 +36,7 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       if (res.ok) {
-        const data = await res.json();
+        const data = await parseResponse(res);
         setUser(data.user);
       } else {
         logout();
@@ -41,8 +58,7 @@ export const AuthProvider = ({ children }) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const data = await parseResponse(res);
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);
@@ -55,8 +71,7 @@ export const AuthProvider = ({ children }) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, phone, email, password })
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const data = await parseResponse(res);
     localStorage.setItem('token', data.token);
     setToken(data.token);
     setUser(data.user);
