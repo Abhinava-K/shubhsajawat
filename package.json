@@ -2,7 +2,7 @@
   "name": "adidash",
   "version": "1.0.0",
   "description": "",
-  "main": "app.js",
+  "main": "server.js",
   "scripts": {
     "server": "node server.js",
     "client": "npm --prefix client run dev",
