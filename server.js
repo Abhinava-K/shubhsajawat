@@ -29,8 +29,12 @@ app.get('/api/health', (req, res) => {
 });
 
 // Serve frontend static files (React Vite build dist & fallbacks)
+const rootDistPath = path.join(__dirname, 'dist');
 const clientDistPath = path.join(__dirname, 'client/dist');
-if (fs.existsSync(clientDistPath)) {
+
+if (fs.existsSync(rootDistPath)) {
+  app.use(express.static(rootDistPath));
+} else if (fs.existsSync(clientDistPath)) {
   app.use(express.static(clientDistPath));
 }
 app.use(express.static(path.join(__dirname, 'public')));
@@ -40,6 +44,9 @@ app.use(express.static(__dirname));
 app.use((req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'Endpoint not found' });
+  }
+  if (fs.existsSync(path.join(rootDistPath, 'index.html'))) {
+    return res.sendFile(path.join(rootDistPath, 'index.html'));
   }
   if (fs.existsSync(path.join(clientDistPath, 'index.html'))) {
     return res.sendFile(path.join(clientDistPath, 'index.html'));
