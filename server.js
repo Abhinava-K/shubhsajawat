@@ -47,14 +47,16 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`====================================================`);
-  console.log(`Shubh Sajawat Fullstack Server running on http://localhost:${PORT}`);
-  console.log(`API Endpoints mounted at http://localhost:${PORT}/api/`);
-  console.log(`====================================================`);
-});
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, () => {
+    console.log(`====================================================`);
+    console.log(`Shubh Sajawat Fullstack Server running on http://localhost:${PORT}`);
+    console.log(`API Endpoints mounted at http://localhost:${PORT}/api/`);
+    console.log(`====================================================`);
+  });
 
-process.on('SIGTERM', () => server.close());
-process.on('SIGINT', () => server.close());
+  process.on('SIGTERM', () => server.close());
+  process.on('SIGINT', () => server.close());
+}
 
 module.exports = app;
