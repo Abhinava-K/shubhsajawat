@@ -12,9 +12,24 @@ const historyRoutes = require('./server/routes/history');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const { connectDB } = require('./server/db');
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Database connection middleware for all API routes
+app.use('/api', async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (err) {
+    console.error('[API Error] Database connection failed:', err.message);
+    res.status(503).json({ 
+      error: 'MongoDB Atlas connection failed. Please ensure MONGODB_URI is configured and IP 0.0.0.0/0 is whitelisted in Atlas.' 
+    });
+  }
+});
 
 // API Routes
 app.use('/api/auth', authRoutes);

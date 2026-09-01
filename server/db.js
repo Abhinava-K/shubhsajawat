@@ -1,105 +1,59 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-const fs = require('fs');
-const path = require('path');
-const bcrypt = require('bcryptjs');
 
 const User = require('./models/User');
 const Challan = require('./models/Challan');
 const CatalogItem = require('./models/CatalogItem');
 const MovementHistory = require('./models/MovementHistory');
 
-const DATA_DIR = path.join(__dirname, '../data');
-const DB_FILE = path.join(DATA_DIR, 'database.json');
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/shubhsajawat';
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Global cache for Serverless (Vercel) & Node environment connection persistence
+let cached = global.mongooseConnection;
+
+if (!cached) {
+  cached = global.mongooseConnection = { conn: null, promise: null };
 }
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/shubhsajawat';
+async function connectDB() {
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
+  }
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 10000,
+    };
+
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongooseInstance) => {
+      console.log(`[MongoDB Atlas] Connected successfully to: ${mongooseInstance.connection.name}`);
+      return mongooseInstance;
+    }).catch((err) => {
+      cached.promise = null;
+      console.error('[MongoDB Connection Error]:', err.message);
+      throw err;
+    });
+  }
+
+  cached.conn = await cached.promise;
+  return cached.conn;
+}
 
 function isMongoConnected() {
   return mongoose.connection.readyState === 1;
 }
 
-async function tryConnectMongoDB() {
-  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) return;
+// Initial eager connection attempt
+connectDB().catch(() => {});
 
-  try {
-    await mongoose.connect(MONGODB_URI, { serverSelectionTimeoutMS: 10000 });
-    console.log(`[MongoDB] Connected successfully to MongoDB Atlas.`);
-  } catch (err) {
-    // Retry automatically via interval
+module.exports = {
+  connectDB,
+  isMongoConnected,
+  models: {
+    User,
+    Challan,
+    CatalogItem,
+    MovementHistory
   }
-}
-
-// Initial connection attempt
-tryConnectMongoDB().then(() => {
-  if (!isMongoConnected()) {
-    console.log(`[MongoDB Notice] Database URI configured. Connecting in background...`);
-  }
-});
-
-// Periodic retry every 10 seconds to ensure resilient connection
-setInterval(tryConnectMongoDB, 10000);
-
-// File-based store
-class Database {
-  constructor() {
-    this._data = { users: [], catalog: [], challans: [], history: [] };
-    this.load();
-  }
-
-  load() {
-    try {
-      if (fs.existsSync(DB_FILE)) {
-        const raw = fs.readFileSync(DB_FILE, 'utf8');
-        this._data = JSON.parse(raw);
-        if (!this._data.users) this._data.users = [];
-        if (!this._data.catalog) this._data.catalog = initialSeedCatalog;
-        if (!this._data.challans) this._data.challans = [];
-        if (!this._data.history) this._data.history = [];
-      } else {
-        this._data = {
-          users: [],
-          catalog: initialSeedCatalog,
-          challans: [],
-          history: []
-        };
-        this.save();
-      }
-    } catch (e) {
-      this._data = { users: [], catalog: initialSeedCatalog, challans: [], history: [] };
-    }
-  }
-
-  save() {
-    try {
-      fs.writeFileSync(DB_FILE, JSON.stringify(this._data, null, 2), 'utf8');
-    } catch (e) {}
-  }
-
-  get data() {
-    this.load();
-    return this._data;
-  }
-
-  set data(val) {
-    this._data = val;
-  }
-}
-
-const db = new Database();
-db.db = db;
-db.isMongoConnected = isMongoConnected;
-db.models = { User, Challan, CatalogItem, MovementHistory };
-
-module.exports = db;
-module.exports.db = db;
-module.exports.isMongoConnected = isMongoConnected;
-module.exports.models = {
-  User,
-  Challan,
-  CatalogItem,
-  MovementHistory
 };

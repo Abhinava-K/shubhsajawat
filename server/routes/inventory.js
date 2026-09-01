@@ -1,23 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { db, isMongoConnected, models } = require('../db');
+const { models } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
 
-// GET /api/inventory - Calculate dynamic stock status
+// GET /api/inventory - Calculate dynamic stock status from MongoDB
 router.get('/', async (req, res) => {
   try {
-    let catalogItems = [];
-    let challanList = [];
-
-    if (isMongoConnected()) {
-      catalogItems = await models.CatalogItem.find();
-      challanList = await models.Challan.find();
-    } else {
-      catalogItems = db.data.catalog || [];
-      challanList = db.data.challans || [];
-    }
+    const catalogItems = await models.CatalogItem.find();
+    const challanList = await models.Challan.find();
 
     // Compute in-field stock from active challans
     const inFieldMap = {};
@@ -49,7 +41,7 @@ router.get('/', async (req, res) => {
 
     res.json({ catalog: catalogWithLiveStats });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch catalog.' });
+    res.status(500).json({ error: 'Failed to fetch catalog from database.' });
   }
 });
 
@@ -71,12 +63,7 @@ router.post('/', requireRole(['admin']), async (req, res) => {
       totalStock: Math.max(0, parseInt(totalStock) || 0)
     };
 
-    if (isMongoConnected()) {
-      await models.CatalogItem.create(itemData);
-    } else {
-      db.data.catalog.push(itemData);
-      db.save();
-    }
+    await models.CatalogItem.create(itemData);
 
     res.status(201).json({ message: `Material ${itemData.name} added to catalog.`, item: itemData });
   } catch (err) {
@@ -88,25 +75,15 @@ router.post('/', requireRole(['admin']), async (req, res) => {
 router.patch('/:id', requireRole(['admin']), async (req, res) => {
   try {
     const { name, category, totalStock, sizes } = req.body;
-    let item;
 
-    if (isMongoConnected()) {
-      item = await models.CatalogItem.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
-      if (!item) return res.status(404).json({ error: 'Material not found in catalog.' });
-      if (name) item.name = name.trim();
-      if (category) item.category = category.trim();
-      if (totalStock !== undefined) item.totalStock = Math.max(0, parseInt(totalStock) || 0);
-      if (sizes && Array.isArray(sizes)) item.sizes = sizes;
-      await item.save();
-    } else {
-      item = db.data.catalog.find(x => x.id === req.params.id);
-      if (!item) return res.status(404).json({ error: 'Material not found in catalog.' });
-      if (name) item.name = name.trim();
-      if (category) item.category = category.trim();
-      if (totalStock !== undefined) item.totalStock = Math.max(0, parseInt(totalStock) || 0);
-      if (sizes && Array.isArray(sizes)) item.sizes = sizes;
-      db.save();
-    }
+    const item = await models.CatalogItem.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    if (!item) return res.status(404).json({ error: 'Material not found in catalog.' });
+    
+    if (name) item.name = name.trim();
+    if (category) item.category = category.trim();
+    if (totalStock !== undefined) item.totalStock = Math.max(0, parseInt(totalStock) || 0);
+    if (sizes && Array.isArray(sizes)) item.sizes = sizes;
+    await item.save();
 
     res.json({ message: `Material ${item.name} updated.`, item });
   } catch (err) {

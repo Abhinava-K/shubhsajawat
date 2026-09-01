@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { db, isMongoConnected, models } = require('../db');
+const { models } = require('../db');
 const { JWT_SECRET, authenticateToken } = require('../middleware/auth');
 
 // Register new user - STRICTLY defaults to role: "viewer"
@@ -17,55 +17,29 @@ router.post('/register', async (req, res) => {
     const cleanEmail = (email || '').trim().toLowerCase();
     const cleanPhone = (phone || '').trim();
 
-    let existing;
-    if (isMongoConnected()) {
-      existing = await models.User.findOne({
-        $or: [
-          ...(cleanEmail ? [{ email: cleanEmail }] : []),
-          ...(cleanPhone ? [{ phone: cleanPhone }] : [])
-        ]
-      });
-    } else {
-      existing = db.data.users.find(u => 
-        (cleanEmail && u.email && u.email.toLowerCase() === cleanEmail) || 
-        (cleanPhone && u.phone && u.phone === cleanPhone)
-      );
-    }
+    const existing = await models.User.findOne({
+      $or: [
+        ...(cleanEmail ? [{ email: cleanEmail }] : []),
+        ...(cleanPhone ? [{ phone: cleanPhone }] : [])
+      ]
+    });
 
     if (existing) {
-      return res.status(400).json({ error: 'A user with this email or phone already exists.' });
+      return res.status(400).json({ error: 'A user with this email or phone already exists in database.' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    let userId;
-    let createdUser;
 
-    if (isMongoConnected()) {
-      createdUser = await models.User.create({
-        name: name.trim(),
-        ...(cleanEmail ? { email: cleanEmail } : {}),
-        phone: cleanPhone,
-        password: hashedPassword,
-        role: 'viewer', // ALWAYS default role is viewer
-        status: 'Active'
-      });
-      userId = createdUser._id.toString();
-    } else {
-      userId = "usr-" + Date.now().toString().slice(-6);
-      createdUser = {
-        id: userId,
-        name: name.trim(),
-        ...(cleanEmail ? { email: cleanEmail } : {}),
-        phone: cleanPhone,
-        password: hashedPassword,
-        role: 'viewer', // ALWAYS default role is viewer
-        status: 'Active',
-        createdAt: new Date().toISOString()
-      };
-      db.data.users.push(createdUser);
-      db.save();
-    }
+    const createdUser = await models.User.create({
+      name: name.trim(),
+      ...(cleanEmail ? { email: cleanEmail } : {}),
+      phone: cleanPhone,
+      password: hashedPassword,
+      role: 'viewer', // ALWAYS default role is viewer
+      status: 'Active'
+    });
 
+    const userId = createdUser._id.toString();
     const token = jwt.sign({ id: userId, role: 'viewer' }, JWT_SECRET, { expiresIn: '7d' });
 
     res.status(201).json({
@@ -96,28 +70,18 @@ router.post('/login', async (req, res) => {
 
     const cleanId = identifier.trim().toLowerCase();
     const cleanDigits = identifier.replace(/\D/g, '');
-    let user;
 
-    if (isMongoConnected()) {
-      user = await models.User.findOne({
-        $or: [
-          { email: cleanId },
-          { phone: cleanId },
-          ...(cleanDigits.length >= 7 ? [{ phone: { $regex: cleanDigits, $options: 'i' } }] : []),
-          { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
-        ]
-      });
-    } else {
-      user = db.data.users.find(u => 
-        (u.email && u.email.toLowerCase() === cleanId) || 
-        (u.phone && u.phone.toLowerCase() === cleanId) ||
-        (cleanDigits.length >= 7 && u.phone && u.phone.replace(/\D/g, '') === cleanDigits) ||
-        (u.name && u.name.toLowerCase() === cleanId)
-      );
-    }
+    const user = await models.User.findOne({
+      $or: [
+        { email: cleanId },
+        { phone: cleanId },
+        ...(cleanDigits.length >= 7 ? [{ phone: { $regex: cleanDigits, $options: 'i' } }] : []),
+        { name: { $regex: new RegExp(`^${cleanId}$`, 'i') } }
+      ]
+    });
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials. User account not found.' });
+      return res.status(401).json({ error: 'Invalid credentials. User account not found in database.' });
     }
 
     if (user.status !== 'Active') {
@@ -129,7 +93,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials. Incorrect password.' });
     }
 
-    const userId = user._id ? user._id.toString() : user.id;
+    const userId = user._id.toString();
     const token = jwt.sign({ id: userId, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
@@ -164,21 +128,13 @@ router.post('/reset-password', async (req, res) => {
 
     const cleanPhone = phone.trim();
     const cleanDigits = phone.replace(/\D/g, '');
-    let user;
 
-    if (isMongoConnected()) {
-      user = await models.User.findOne({
-        $or: [
-          { phone: cleanPhone },
-          ...(cleanDigits.length >= 7 ? [{ phone: { $regex: cleanDigits, $options: 'i' } }] : [])
-        ]
-      });
-    } else {
-      user = db.data.users.find(u => 
-        (u.phone && u.phone === cleanPhone) ||
-        (cleanDigits.length >= 7 && u.phone && u.phone.replace(/\D/g, '') === cleanDigits)
-      );
-    }
+    const user = await models.User.findOne({
+      $or: [
+        { phone: cleanPhone },
+        ...(cleanDigits.length >= 7 ? [{ phone: { $regex: cleanDigits, $options: 'i' } }] : [])
+      ]
+    });
 
     if (!user) {
       return res.status(404).json({ error: 'No account registered with this phone number.' });
@@ -186,12 +142,7 @@ router.post('/reset-password', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassword;
-
-    if (isMongoConnected()) {
-      await user.save();
-    } else {
-      db.save();
-    }
+    await user.save();
 
     res.json({ message: `Password reset successfully for ${user.name}. You can now sign in with your new password.` });
   } catch (err) {

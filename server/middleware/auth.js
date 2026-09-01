@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { db, isMongoConnected, models } = require('../db');
+const { models } = require('../db');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'shubhsajawat_super_secret_jwt_key_2026';
 
@@ -18,22 +18,17 @@ async function authenticateToken(req, res, next) {
 
     try {
       let user = null;
-      if (isMongoConnected()) {
-        try {
-          user = await models.User.findById(decoded.id);
-        } catch (err) {}
-        if (!user) {
-          user = await models.User.findOne({
-            $or: [
-              { phone: decoded.id },
-              { email: decoded.id }
-            ]
-          });
-        }
-      }
-
+      try {
+        user = await models.User.findById(decoded.id);
+      } catch (err) {}
+      
       if (!user) {
-        user = db.data.users.find(u => u.id === decoded.id || u.phone === decoded.id || u.email === decoded.id);
+        user = await models.User.findOne({
+          $or: [
+            { phone: decoded.id },
+            { email: decoded.id }
+          ]
+        });
       }
 
       if (!user || user.status !== 'Active') {
@@ -41,7 +36,7 @@ async function authenticateToken(req, res, next) {
       }
 
       req.user = {
-        id: user._id ? user._id.toString() : user.id,
+        id: user._id.toString(),
         name: user.name,
         email: user.email,
         phone: user.phone,

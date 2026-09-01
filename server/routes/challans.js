@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { db, isMongoConnected, models } = require('../db');
+const { models } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
@@ -8,31 +8,23 @@ router.use(authenticateToken);
 // GET /api/challans - All authenticated users (Admin, Loader, Viewer) can view
 router.get('/', async (req, res) => {
   try {
-    if (isMongoConnected()) {
-      const challans = await models.Challan.find().sort({ createdAt: -1 });
-      return res.json({ challans });
-    }
-    res.json({ challans: db.data.challans || [] });
+    const challans = await models.Challan.find().sort({ createdAt: -1 });
+    res.json({ challans });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch challans.' });
+    res.status(500).json({ error: 'Failed to fetch challans from database.' });
   }
 });
 
 // GET /api/challans/:id - Get single challan
 router.get('/:id', async (req, res) => {
   try {
-    let challan;
-    if (isMongoConnected()) {
-      challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
-    } else {
-      challan = db.data.challans.find(c => c.id === req.params.id);
-    }
+    const challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
     if (!challan) {
-      return res.status(404).json({ error: 'Challan not found.' });
+      return res.status(404).json({ error: 'Challan not found in database.' });
     }
     res.json({ challan });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch challan.' });
+    res.status(500).json({ error: 'Failed to fetch challan from database.' });
   }
 });
 
@@ -97,14 +89,8 @@ router.post('/', requireRole(['admin', 'loader']), async (req, res) => {
       refId: challanId
     };
 
-    if (isMongoConnected()) {
-      await models.Challan.create(newChallan);
-      await models.MovementHistory.create(historyRecord);
-    } else {
-      db.data.challans.push(newChallan);
-      db.data.history.push(historyRecord);
-      db.save();
-    }
+    await models.Challan.create(newChallan);
+    await models.MovementHistory.create(historyRecord);
 
     res.status(201).json({
       message: 'Digital Challan created successfully.',
@@ -112,24 +98,18 @@ router.post('/', requireRole(['admin', 'loader']), async (req, res) => {
     });
   } catch (err) {
     console.error('Create challan error:', err);
-    res.status(500).json({ error: 'Server error while creating challan.' });
+    res.status(500).json({ error: 'Server error while creating challan in database.' });
   }
 });
 
 // POST /api/challans/:id/returns - Receive Return & Shortage (ONLY Loader and Admin)
 router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) => {
   try {
-    const { returns, notes } = req.body; // array of { srNo, returnedQty, damageQty }
-    let challan;
-
-    if (isMongoConnected()) {
-      challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
-    } else {
-      challan = db.data.challans.find(c => c.id === req.params.id);
-    }
+    const { returns, notes } = req.body;
+    const challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
 
     if (!challan) {
-      return res.status(404).json({ error: 'Challan not found.' });
+      return res.status(404).json({ error: 'Challan not found in database.' });
     }
 
     if (!returns || !Array.isArray(returns) || returns.length === 0) {
@@ -199,14 +179,9 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
       });
     }
 
-    if (isMongoConnected()) {
-      await challan.save();
-      if (histRecords.length > 0) {
-        await models.MovementHistory.insertMany(histRecords);
-      }
-    } else {
-      histRecords.forEach(h => db.data.history.push(h));
-      db.save();
+    await challan.save();
+    if (histRecords.length > 0) {
+      await models.MovementHistory.insertMany(histRecords);
     }
 
     res.json({
@@ -215,30 +190,18 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
     });
   } catch (err) {
     console.error('Process return error:', err);
-    res.status(500).json({ error: 'Server error while processing return.' });
+    res.status(500).json({ error: 'Server error while processing return in database.' });
   }
 });
 
 // DELETE /api/challans/:id - Admin only
 router.delete('/:id', requireRole(['admin']), async (req, res) => {
   try {
-    if (isMongoConnected()) {
-      const result = await models.Challan.findOneAndDelete({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
-      if (!result) return res.status(404).json({ error: 'Challan not found.' });
-      return res.json({ message: `Challan ${result.id} deleted successfully.` });
-    }
-
-    const idx = db.data.challans.findIndex(c => c.id === req.params.id);
-    if (idx === -1) {
-      return res.status(404).json({ error: 'Challan not found.' });
-    }
-
-    const removed = db.data.challans.splice(idx, 1)[0];
-    db.save();
-
-    res.json({ message: `Challan ${removed.id} deleted successfully.` });
+    const result = await models.Challan.findOneAndDelete({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    if (!result) return res.status(404).json({ error: 'Challan not found in database.' });
+    return res.json({ message: `Challan ${result.id} deleted successfully.` });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete challan.' });
+    res.status(500).json({ error: 'Failed to delete challan from database.' });
   }
 });
 
