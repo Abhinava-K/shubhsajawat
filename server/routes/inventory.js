@@ -76,7 +76,8 @@ router.patch('/:id', requireRole(['admin']), async (req, res) => {
   try {
     const { name, category, totalStock, sizes } = req.body;
 
-    const item = await models.CatalogItem.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    const isObjId = require('mongoose').Types.ObjectId.isValid(req.params.id) && req.params.id.length === 24;
+    const item = await models.CatalogItem.findOne(isObjId ? { $or: [{ id: req.params.id }, { _id: req.params.id }] } : { id: req.params.id });
     if (!item) return res.status(404).json({ error: 'Material not found in catalog.' });
     
     if (name) item.name = name.trim();

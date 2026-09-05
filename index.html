@@ -77,12 +77,12 @@
     <!-- Forgot Password Form -->
     <div class="auth-body" id="forgotFormContainer" style="display:none;">
       <div class="auth-notice" style="background:#f0f9ff;border-color:#bae6fd;color:#0369a1;">
-        🔑 <strong>Password Reset:</strong> Enter your registered mobile number to set a new password.
+        🔑 <strong>Password Reset:</strong> Enter your registered username, mobile number, or email to set a new password.
       </div>
       <form onsubmit="handleForgotPasswordSubmit(event)">
         <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label">Registered Mobile Number <span class="req">*</span></label>
-          <input type="text" id="forgot_phone" class="form-control" placeholder="e.g. 9876543210" required>
+          <label class="form-label">Username, Mobile Number, or Email <span class="req">*</span></label>
+          <input type="text" id="forgot_phone" class="form-control" placeholder="Username, mobile number, or email" required>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label">New Password <span class="req">*</span></label>

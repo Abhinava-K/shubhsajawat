@@ -15,6 +15,7 @@ const ChallanSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   clientName: { type: String, required: true },
   venue: { type: String, required: true },
+  vehicleNumber: { type: String, default: '' },
   dispatchDate: { type: String, required: true },
   dueDate: { type: String, required: true },
   dispatcherName: { type: String, required: true },

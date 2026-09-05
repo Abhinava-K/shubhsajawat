@@ -1,9 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const { models } = require('../db');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
 router.use(authenticateToken);
+
+function buildChallanQuery(id) {
+  if (!id) return { id: null };
+  const trimmed = id.trim();
+  if (mongoose.Types.ObjectId.isValid(trimmed) && trimmed.length === 24) {
+    return { $or: [{ id: trimmed }, { _id: trimmed }] };
+  }
+  return { id: trimmed };
+}
 
 // GET /api/challans - All authenticated users (Admin, Loader, Viewer) can view
 router.get('/', async (req, res) => {
@@ -18,7 +28,7 @@ router.get('/', async (req, res) => {
 // GET /api/challans/:id - Get single challan
 router.get('/:id', async (req, res) => {
   try {
-    const challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    const challan = await models.Challan.findOne(buildChallanQuery(req.params.id));
     if (!challan) {
       return res.status(404).json({ error: 'Challan not found in database.' });
     }
@@ -31,7 +41,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/challans - Create Digital Challan (ONLY Loader and Admin)
 router.post('/', requireRole(['admin', 'loader']), async (req, res) => {
   try {
-    const { clientName, venue, dispatchDate, dueDate, items, notes } = req.body;
+    const { clientName, venue, vehicleNumber, dispatchDate, dueDate, items, notes } = req.body;
 
     if (!clientName || !venue) {
       return res.status(400).json({ error: 'Client Name and Venue are required.' });
@@ -67,6 +77,7 @@ router.post('/', requireRole(['admin', 'loader']), async (req, res) => {
       id: challanId,
       clientName: clientName.trim(),
       venue: venue.trim(),
+      vehicleNumber: (vehicleNumber || '').trim(),
       dispatchDate: challanDate,
       dueDate: returnDueDate,
       dispatcherName: req.user.name,
@@ -106,7 +117,7 @@ router.post('/', requireRole(['admin', 'loader']), async (req, res) => {
 router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) => {
   try {
     const { returns, notes } = req.body;
-    const challan = await models.Challan.findOne({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    const challan = await models.Challan.findOne(buildChallanQuery(req.params.id));
 
     if (!challan) {
       return res.status(404).json({ error: 'Challan not found in database.' });
@@ -121,7 +132,7 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
     const todayStr = new Date().toISOString().slice(0, 10);
 
     returns.forEach(ret => {
-      const it = challan.items.find(x => x.srNo === ret.srNo);
+      const it = challan.items.find(x => x.srNo === Number(ret.srNo));
       if (it) {
         const retQty = Math.max(0, parseInt(ret.returnedQty) || 0);
         const dmgQty = Math.max(0, parseInt(ret.damageQty) || 0);
@@ -151,9 +162,10 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
     }
 
     const histRecords = [];
+    const baseTimestamp = Date.now();
     if (totalReturned > 0) {
       histRecords.push({
-        id: "h-" + Date.now().toString().slice(-6),
+        id: "h-" + baseTimestamp.toString().slice(-6),
         date: todayStr,
         itemName: `Material returned from ${challan.clientName}`,
         from: challan.venue,
@@ -167,7 +179,7 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
 
     if (totalDamaged > 0) {
       histRecords.push({
-        id: "h-" + (Date.now() + 1).toString().slice(-6),
+        id: "h-" + (baseTimestamp + 1).toString().slice(-6),
         date: todayStr,
         itemName: `Damaged / Missing items from ${challan.clientName}`,
         from: challan.venue,
@@ -179,6 +191,7 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
       });
     }
 
+    challan.markModified('items');
     await challan.save();
     if (histRecords.length > 0) {
       await models.MovementHistory.insertMany(histRecords);
@@ -197,7 +210,7 @@ router.post('/:id/returns', requireRole(['admin', 'loader']), async (req, res) =
 // DELETE /api/challans/:id - Admin only
 router.delete('/:id', requireRole(['admin']), async (req, res) => {
   try {
-    const result = await models.Challan.findOneAndDelete({ $or: [{ id: req.params.id }, { _id: req.params.id }] });
+    const result = await models.Challan.findOneAndDelete(buildChallanQuery(req.params.id));
     if (!result) return res.status(404).json({ error: 'Challan not found in database.' });
     return res.json({ message: `Challan ${result.id} deleted successfully.` });
   } catch (err) {

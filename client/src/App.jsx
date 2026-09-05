@@ -275,7 +275,7 @@ function MainApp() {
 
   const renderChallans = () => {
     const list = challans.filter(c => {
-      const text = `${c.id} ${c.clientName} ${c.venue} ${c.dispatcherName}`.toLowerCase();
+      const text = `${c.id} ${c.clientName} ${c.venue} ${c.vehicleNumber || ''} ${c.dispatcherName}`.toLowerCase();
       const matchQ = text.includes(challanSearch.toLowerCase());
       if (!matchQ) return false;
       const out = getChallanTotalOut(c);
@@ -344,6 +344,11 @@ function MainApp() {
                         <td>
                           <strong>{c.clientName}</strong><br />
                           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{c.venue}</span>
+                          {c.vehicleNumber && (
+                            <div style={{ fontSize: '11.5px', color: '#4338ca', marginTop: '3px', fontWeight: '500' }}>
+                              🚗 {c.vehicleNumber}
+                            </div>
+                          )}
                         </td>
                         <td>{c.dispatchDate}</td>
                         <td>{c.dueDate}</td>
@@ -446,6 +451,12 @@ function MainApp() {
                       <span style={{ color: 'var(--text-muted)' }}>Challan No:</span>
                       <strong>{c.id}</strong>
                     </div>
+                    {c.vehicleNumber && (
+                      <div className="site-meta-row">
+                        <span style={{ color: 'var(--text-muted)' }}>Vehicle No:</span>
+                        <strong>{c.vehicleNumber}</strong>
+                      </div>
+                    )}
                     <div className="site-meta-row">
                       <span style={{ color: 'var(--text-muted)' }}>Expected Return:</span>
                       <strong>{c.dueDate}</strong>
@@ -1154,6 +1165,7 @@ function NewChallanModal({ catalog, onClose, onSuccess, apiFetch, showToast }) {
   const { user } = useAuth();
   const [clientName, setClientName] = useState('');
   const [venue, setVenue] = useState('');
+  const [vehicleNumber, setVehicleNumber] = useState('');
   const [dispatchDate, setDispatchDate] = useState(new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState('');
   const [items, setItems] = useState([
@@ -1216,6 +1228,7 @@ function NewChallanModal({ catalog, onClose, onSuccess, apiFetch, showToast }) {
         body: JSON.stringify({
           clientName,
           venue,
+          vehicleNumber,
           dispatchDate,
           dueDate: dueDate || dispatchDate,
           items: validItems
@@ -1259,6 +1272,16 @@ function NewChallanModal({ catalog, onClose, onSuccess, apiFetch, showToast }) {
                 value={venue}
                 onChange={(e) => setVenue(e.target.value)}
                 required
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Vehicle Number</label>
+              <input
+                className="form-control"
+                placeholder="e.g. MH 12 AB 1234 / Loading Tempo"
+                value={vehicleNumber}
+                onChange={(e) => setVehicleNumber(e.target.value)}
               />
             </div>
 
@@ -1397,6 +1420,12 @@ function ChallanSlipModal({ challan, onClose }) {
                   <div className="challan-info-label">Venue / Event:</div>
                   <div className="challan-info-value">{challan.venue}</div>
                 </div>
+                {challan.vehicleNumber && (
+                  <div className="challan-slip-info-row">
+                    <div className="challan-info-label">Vehicle No:</div>
+                    <div className="challan-info-value"><strong>{challan.vehicleNumber}</strong></div>
+                  </div>
+                )}
                 <div className="challan-slip-info-row">
                   <div className="challan-info-label">Dispatch Date:</div>
                   <div className="challan-info-value">{challan.dispatchDate}</div>
@@ -1793,7 +1822,7 @@ function AuthScreen() {
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: forgotPhone, newPassword: forgotNewPass })
+        body: JSON.stringify({ identifier: forgotPhone, phone: forgotPhone, newPassword: forgotNewPass })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Password reset failed');
@@ -1952,15 +1981,15 @@ function AuthScreen() {
         {tab === 'forgot' && (
           <div className="auth-body">
             <div className="auth-notice" style={{ background: '#f0f9ff', borderColor: '#bae6fd', color: '#0369a1' }}>
-              🔑 <strong>Password Reset:</strong> Enter your registered mobile number to set a new password.
+              🔑 <strong>Password Reset:</strong> Enter your registered username, mobile number, or email to set a new password.
             </div>
 
             <form onSubmit={handleResetPassword}>
               <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label className="form-label">Registered Mobile Number <span className="req">*</span></label>
+                <label className="form-label">Username, Mobile Number, or Email <span className="req">*</span></label>
                 <input
                   className="form-control"
-                  placeholder="e.g. 9876543210"
+                  placeholder="Username, mobile number, or email"
                   value={forgotPhone}
                   onChange={(e) => setForgotPhone(e.target.value)}
                   required

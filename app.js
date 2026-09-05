@@ -106,7 +106,7 @@ async function handleForgotPasswordSubmit(e) {
     const res = await fetch(`${API_BASE}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, newPassword })
+      body: JSON.stringify({ identifier: phone, phone, newPassword })
     });
 
     const data = await res.json();

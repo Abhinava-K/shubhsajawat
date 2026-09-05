@@ -113,31 +113,38 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Reset Password by Phone Number
+// Reset Password by Username, Phone Number, or Email
 router.post('/reset-password', async (req, res) => {
   try {
-    const { phone, newPassword } = req.body;
+    const { identifier, phone, email, newPassword } = req.body;
+    const lookupId = (identifier || phone || email || '').toString().trim();
 
-    if (!phone || !newPassword) {
-      return res.status(400).json({ error: 'Registered phone number and new password are required.' });
+    if (!lookupId || !newPassword) {
+      return res.status(400).json({ error: 'Please provide your registered username, phone, or email and new password.' });
     }
 
     if (newPassword.length < 4) {
       return res.status(400).json({ error: 'Password must be at least 4 characters long.' });
     }
 
-    const cleanPhone = phone.trim();
-    const cleanDigits = phone.replace(/\D/g, '');
+    const cleanId = lookupId.toLowerCase();
+    const cleanDigits = lookupId.replace(/\D/g, '');
+    const escapedName = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    const user = await models.User.findOne({
-      $or: [
-        { phone: cleanPhone },
-        ...(cleanDigits.length >= 7 ? [{ phone: { $regex: cleanDigits, $options: 'i' } }] : [])
-      ]
-    });
+    const queryOr = [
+      { email: cleanId },
+      { phone: lookupId },
+      { name: { $regex: new RegExp(`^${escapedName}$`, 'i') } }
+    ];
+
+    if (cleanDigits.length >= 6) {
+      queryOr.push({ phone: { $regex: cleanDigits, $options: 'i' } });
+    }
+
+    const user = await models.User.findOne({ $or: queryOr });
 
     if (!user) {
-      return res.status(404).json({ error: 'No account registered with this phone number.' });
+      return res.status(404).json({ error: 'No user account found matching the provided username, phone, or email.' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
